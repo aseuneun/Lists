@@ -80,8 +80,7 @@ export default function App() {
   const filteredTasks = tasks.filter(t => dumpTab === 'todo' ? !t.is_done : t.is_done)
 
   return (
-    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', maxWidth: 430, margin: '0 auto', position: 'relative' }}>
-
+    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
       {/* 탭 헤더 */}
       <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff' }}>
         {['dump', 'timeblock'].map(t => (
