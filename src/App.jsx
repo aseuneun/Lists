@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-
+ 
 const AREAS = ['매장일', '주식', '탐험', '일러스트', '탐구', '생활관리', '중국소싱']
-
+ 
 const TIME_SLOTS = [
   '5:00', '5:30', '6:00', '6:30', '7:00', '7:30', '8:00', '8:30',
   '9:00', '9:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
@@ -10,7 +10,7 @@ const TIME_SLOTS = [
   '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
   '21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '0:00', '0:30', '1:00'
 ]
-
+ 
 const AREA_COLORS = {
   '매장일': '#a8c5a0',
   '주식': '#a0b8c5',
@@ -20,7 +20,7 @@ const AREA_COLORS = {
   '생활관리': '#a0c5bf',
   '중국소싱': '#c5b0a0',
 }
-
+ 
 export default function App() {
   const [tab, setTab] = useState('dump')
   const [dumpTab, setDumpTab] = useState('todo')
@@ -31,14 +31,16 @@ export default function App() {
   const [newArea, setNewArea] = useState(AREAS[0])
   const [showSlotModal, setShowSlotModal] = useState(null)
   const [dateOffset, setDateOffset] = useState(0)
+  const [editTask, setEditTask] = useState(null)
   const longPressTimer = useState(null)
-
+  const taskLongPressTimer = useState(null)
+ 
   const getDate = (offset) => {
     const d = new Date()
     d.setDate(d.getDate() + offset)
     return d.toISOString().split('T')[0]
   }
-
+ 
   const getDateLabel = (offset) => {
     if (offset === 0) return '오늘'
     if (offset === -1) return '어제'
@@ -47,24 +49,24 @@ export default function App() {
     d.setDate(d.getDate() + offset)
     return `${d.getMonth() + 1}/${d.getDate()}`
   }
-
+ 
   const today = getDate(dateOffset)
-
+ 
   useEffect(() => {
     fetchTasks()
     fetchTimeblocks()
   }, [dateOffset])
-
+ 
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
     if (data) setTasks(data)
   }
-
+ 
   async function fetchTimeblocks() {
     const { data } = await supabase.from('timeblocks').select('*, tasks(title, area)').eq('date', today)
     if (data) setTimeblocks(data)
   }
-
+ 
   async function addTask() {
     if (!newTitle.trim()) return
     await supabase.from('tasks').insert({ title: newTitle, area: newArea, is_done: false })
@@ -73,12 +75,12 @@ export default function App() {
     setShowSheet(false)
     fetchTasks()
   }
-
+ 
   async function toggleTask(task) {
     await supabase.from('tasks').update({ is_done: !task.is_done }).eq('id', task.id)
     fetchTasks()
   }
-
+ 
   async function assignTimeblock(slot, type, taskId) {
     const existing = timeblocks.find(b => b.time_slot === slot && b.type === type)
     if (existing) {
@@ -89,21 +91,34 @@ export default function App() {
     setShowSlotModal(null)
     fetchTimeblocks()
   }
-
+ 
   async function deleteTimeblock(id) {
     await supabase.from('timeblocks').delete().eq('id', id)
     fetchTimeblocks()
   }
-
+ 
+  async function deleteTask(id) {
+    await supabase.from('timeblocks').delete().eq('task_id', id)
+    await supabase.from('tasks').delete().eq('id', id)
+    setEditTask(null)
+    fetchTasks()
+  }
+ 
+  async function updateTaskArea(id, area) {
+    await supabase.from('tasks').update({ area }).eq('id', id)
+    setEditTask(null)
+    fetchTasks()
+  }
+ 
   function getBlock(slot, type) {
     return timeblocks.find(b => b.time_slot === slot && b.type === type)
   }
-
+ 
   const filteredTasks = tasks.filter(t => dumpTab === 'todo' ? !t.is_done : t.is_done)
-
+ 
   return (
-    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
-      
+    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', position: 'relative' }}>
+ 
       {/* 탭 헤더 */}
       <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff' }}>
         {['dump', 'timeblock'].map(t => (
@@ -117,7 +132,7 @@ export default function App() {
           </button>
         ))}
       </div>
-
+ 
       {/* 덤프 탭 */}
       {tab === 'dump' && (
         <div style={{ padding: '16px' }}>
@@ -133,7 +148,7 @@ export default function App() {
               </button>
             ))}
           </div>
-
+ 
           {/* 태스크 리스트 */}
           {filteredTasks.length === 0 && (
             <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
@@ -141,10 +156,16 @@ export default function App() {
             </div>
           )}
           {filteredTasks.map(task => (
-            <div key={task.id} onClick={() => toggleTask(task)} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 4px', borderBottom: '1px solid #e8e3d8', cursor: 'pointer'
-            }}>
+            <div
+              key={task.id}
+              onClick={() => toggleTask(task)}
+              onContextMenu={e => { e.preventDefault(); setEditTask(task) }}
+              onTouchStart={() => taskLongPressTimer[1](setTimeout(() => setEditTask(task), 600))}
+              onTouchEnd={() => { clearTimeout(taskLongPressTimer[0]); taskLongPressTimer[1](null) }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 4px', borderBottom: '1px solid #e8e3d8', cursor: 'pointer'
+              }}>
               <span style={{
                 fontSize: 15, color: task.is_done ? '#aaa' : '#222',
                 textDecoration: task.is_done ? 'line-through' : 'none'
@@ -161,7 +182,7 @@ export default function App() {
           ))}
         </div>
       )}
-
+ 
       {/* 타임블록 탭 */}
       {tab === 'timeblock' && (
         <div style={{ padding: '16px 8px' }}>
@@ -171,14 +192,14 @@ export default function App() {
             <span style={{ fontSize: 14, fontWeight: 700 }}>{getDateLabel(dateOffset)} · {today}</span>
             <button onClick={() => setDateOffset(d => d + 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>›</button>
           </div>
-
+ 
           {/* 헤더 */}
           <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 4 }}>
             <div />
             <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>PLAN</div>
             <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>DONE</div>
           </div>
-
+ 
           {/* 슬롯 */}
           {TIME_SLOTS.map(slot => (
             <div key={slot} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 2 }}>
@@ -212,7 +233,7 @@ export default function App() {
           ))}
         </div>
       )}
-
+ 
       {/* 바텀시트 - 태스크 추가 */}
       {showSheet && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
@@ -255,7 +276,7 @@ export default function App() {
           </div>
         </div>
       )}
-
+ 
       {/* 슬롯 선택 모달 */}
       {showSlotModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
@@ -286,7 +307,42 @@ export default function App() {
           </div>
         </div>
       )}
-
+ 
+      {/* 태스크 편집 모달 */}
+      {editTask && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20 }}>
+          <div onClick={() => setEditTask(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div style={{
+            position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+            width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0',
+            padding: '24px 20px 40px'
+          }}>
+            <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px' }} />
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{editTask.title}</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>영역 변경 또는 삭제</div>
+ 
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {AREAS.map(area => (
+                <button key={area} onClick={() => updateTaskArea(editTask.id, area)} style={{
+                  padding: '6px 12px', borderRadius: 16, border: 'none', cursor: 'pointer', fontSize: 12,
+                  background: editTask.area === area ? '#222' : '#e0dbd0',
+                  color: editTask.area === area ? '#fff' : '#666'
+                }}>
+                  {area}
+                </button>
+              ))}
+            </div>
+ 
+            <button onClick={() => deleteTask(editTask.id)} style={{
+              width: '100%', padding: '12px', background: '#ff4444',
+              color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer'
+            }}>
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
+ 
       {/* 덤프 탭일 때만 추가 버튼 */}
       {tab === 'dump' && (
         <button onClick={() => setShowSheet(true)} style={{
@@ -300,3 +356,4 @@ export default function App() {
     </div>
   )
 }
+ 
