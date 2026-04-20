@@ -191,7 +191,7 @@ export default function App() {
               autoFocus
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addTask()}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } }}
               placeholder="할 일 입력..."
               style={{
                 width: '100%', border: 'none', borderBottom: '1px solid #ddd',
