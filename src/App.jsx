@@ -423,8 +423,10 @@ export default function App() {
   const [showSlotModal, setShowSlotModal] = useState(null)
   const [dateOffset, setDateOffset] = useState(0)
   const [editTask, setEditTask] = useState(null)
+  const [editRoutine, setEditRoutine] = useState(null)
   const longPressTimer = useState(null)
   const taskLongPressTimer = useState(null)
+  const routineLongPressTimer = useState(null)
 
   const getDate = (offset) => {
     const d = new Date()
