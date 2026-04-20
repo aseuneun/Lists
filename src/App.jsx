@@ -288,7 +288,7 @@ export default function App() {
               autoFocus
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask() } }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addTask() } }}
               placeholder={tab === 'routine' ? '루틴 입력...' : '할 일 입력...'}
               style={{ width: '100%', border: 'none', borderBottom: '1px solid #ddd', padding: '8px 0', fontSize: 16, outline: 'none', background: 'none', boxSizing: 'border-box' }}
             />
