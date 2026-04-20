@@ -29,13 +29,31 @@ export default function App() {
   const [showSheet, setShowSheet] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newArea, setNewArea] = useState(AREAS[0])
-  const [showSlotModal, setShowSlotModal] = useState(null) // { slot, type }
-  const today = new Date().toISOString().split('T')[0]
+  const [showSlotModal, setShowSlotModal] = useState(null)
+  const [dateOffset, setDateOffset] = useState(0)
+  const longPressTimer = useState(null)
+
+  const getDate = (offset) => {
+    const d = new Date()
+    d.setDate(d.getDate() + offset)
+    return d.toISOString().split('T')[0]
+  }
+
+  const getDateLabel = (offset) => {
+    if (offset === 0) return '오늘'
+    if (offset === -1) return '어제'
+    if (offset === 1) return '내일'
+    const d = new Date()
+    d.setDate(d.getDate() + offset)
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
+
+  const today = getDate(dateOffset)
 
   useEffect(() => {
     fetchTasks()
     fetchTimeblocks()
-  }, [])
+  }, [dateOffset])
 
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
@@ -49,14 +67,13 @@ export default function App() {
 
   async function addTask() {
     if (!newTitle.trim()) return
-    setShowSheet(false)
-    const title = newTitle
-    const area = newArea
+    await supabase.from('tasks').insert({ title: newTitle, area: newArea, is_done: false })
     setNewTitle('')
     setNewArea(AREAS[0])
-    await supabase.from('tasks').insert({ title, area, is_done: false })
+    setShowSheet(false)
     fetchTasks()
   }
+
   async function toggleTask(task) {
     await supabase.from('tasks').update({ is_done: !task.is_done }).eq('id', task.id)
     fetchTasks()
@@ -73,6 +90,11 @@ export default function App() {
     fetchTimeblocks()
   }
 
+  async function deleteTimeblock(id) {
+    await supabase.from('timeblocks').delete().eq('id', id)
+    fetchTimeblocks()
+  }
+
   function getBlock(slot, type) {
     return timeblocks.find(b => b.time_slot === slot && b.type === type)
   }
@@ -80,7 +102,8 @@ export default function App() {
   const filteredTasks = tasks.filter(t => dumpTab === 'todo' ? !t.is_done : t.is_done)
 
   return (
-    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
+    <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', maxWidth: 430, margin: '0 auto', position: 'relative' }}>
+
       {/* 탭 헤더 */}
       <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff' }}>
         {['dump', 'timeblock'].map(t => (
@@ -142,6 +165,13 @@ export default function App() {
       {/* 타임블록 탭 */}
       {tab === 'timeblock' && (
         <div style={{ padding: '16px 8px' }}>
+          {/* 날짜 네비게이션 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 12 }}>
+            <button onClick={() => setDateOffset(d => d - 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>‹</button>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{getDateLabel(dateOffset)} · {today}</span>
+            <button onClick={() => setDateOffset(d => d + 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>›</button>
+          </div>
+
           {/* 헤더 */}
           <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 4 }}>
             <div />
@@ -158,12 +188,18 @@ export default function App() {
               {['plan', 'done'].map(type => {
                 const block = getBlock(slot, type)
                 return (
-                  <div key={type} onClick={() => setShowSlotModal({ slot, type })} style={{
-                    minHeight: 32, margin: '0 2px', borderRadius: 4, cursor: 'pointer',
-                    background: block ? (AREA_COLORS[block.tasks?.area] || '#ccc') : '#e8e3d8',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '4px 6px'
-                  }}>
+                  <div
+                    key={type}
+                    onClick={() => !block && setShowSlotModal({ slot, type })}
+                    onContextMenu={e => { e.preventDefault(); if (block) deleteTimeblock(block.id) }}
+                    onTouchStart={() => { if (block) { longPressTimer[1](setTimeout(() => deleteTimeblock(block.id), 600)) } }}
+                    onTouchEnd={() => { clearTimeout(longPressTimer[0]); longPressTimer[1](null) }}
+                    style={{
+                      minHeight: 32, margin: '0 2px', borderRadius: 4, cursor: 'pointer',
+                      background: block ? (AREA_COLORS[block.tasks?.area] || '#ccc') : '#e8e3d8',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '4px 6px'
+                    }}>
                     {block && (
                       <span style={{ fontSize: 11, color: '#fff', textAlign: 'center', lineHeight: 1.3 }}>
                         {block.tasks?.title}
@@ -191,7 +227,7 @@ export default function App() {
               autoFocus
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } }}
+              onKeyDown={e => e.key === 'Enter' && addTask()}
               placeholder="할 일 입력..."
               style={{
                 width: '100%', border: 'none', borderBottom: '1px solid #ddd',
@@ -210,7 +246,12 @@ export default function App() {
                 </button>
               ))}
             </div>
-           
+            <button onClick={addTask} style={{
+              marginTop: 20, width: '100%', padding: '12px', background: '#222',
+              color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer'
+            }}>
+              추가
+            </button>
           </div>
         </div>
       )}
