@@ -49,13 +49,14 @@ export default function App() {
 
   async function addTask() {
     if (!newTitle.trim()) return
-    await supabase.from('tasks').insert({ title: newTitle, area: newArea, is_done: false })
+    setShowSheet(false)
+    const title = newTitle
+    const area = newArea
     setNewTitle('')
     setNewArea(AREAS[0])
-    setShowSheet(false)
+    await supabase.from('tasks').insert({ title, area, is_done: false })
     fetchTasks()
   }
-
   async function toggleTask(task) {
     await supabase.from('tasks').update({ is_done: !task.is_done }).eq('id', task.id)
     fetchTasks()
@@ -210,7 +211,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <button onClick={addTask} style={{
+            <button onClick={e => { e.preventDefault(); addTask(); }} style={{
               marginTop: 20, width: '100%', padding: '12px', background: '#222',
               color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer'
             }}>
