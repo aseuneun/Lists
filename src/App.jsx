@@ -211,12 +211,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <button onClick={e => { e.preventDefault(); addTask(); }} style={{
-              marginTop: 20, width: '100%', padding: '12px', background: '#222',
-              color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, cursor: 'pointer'
-            }}>
-              추가
-            </button>
+           
           </div>
         </div>
       )}
