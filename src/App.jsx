@@ -21,6 +21,8 @@ const AREA_COLORS = {
   '중국소싱': '#c5b0a0',
 }
 
+const TABS = ['dump', 'routine', 'timeblock']
+
 export default function App() {
   const [tab, setTab] = useState('dump')
   const [dumpTab, setDumpTab] = useState('todo')
@@ -54,6 +56,7 @@ export default function App() {
   }
 
   const today = getDate(dateOffset)
+  const tabIndex = TABS.indexOf(tab)
 
   useEffect(() => {
     fetchTasks()
@@ -149,17 +152,17 @@ export default function App() {
     <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
 
       {/* 탭 헤더 */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff' }}>
-        {['dump', 'routine', 'timeblock'].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff', position: 'relative' }}>
+        {TABS.map(t => (
+          <button key={t} className="tab-button" onClick={() => setTab(t)} style={{
             flex: 1, padding: '14px 0', border: 'none', background: 'none',
             fontWeight: tab === t ? 700 : 400,
-            borderBottom: tab === t ? '2px solid #222' : '2px solid transparent',
             fontSize: 14, cursor: 'pointer', color: '#222'
           }}>
             {t === 'dump' ? '덤프' : t === 'routine' ? '루틴' : '타임블록'}
           </button>
         ))}
+        <div className="tab-underline" style={{ left: `${(tabIndex * 100) / TABS.length}%`, width: `${100 / TABS.length}%` }} />
       </div>
 
       {/* 덤프 탭 */}
@@ -184,6 +187,7 @@ export default function App() {
           {filteredTasks.map(task => (
             <div
               key={task.id}
+              className="task-item"
               onClick={() => toggleTask(task)}
               onContextMenu={e => { e.preventDefault(); setEditTask(task) }}
               onTouchStart={() => taskLongPressTimer[1](setTimeout(() => setEditTask(task), 600))}
@@ -214,6 +218,7 @@ export default function App() {
           {routines.map(routine => (
             <div
               key={routine.id}
+              className="task-item"
               onContextMenu={e => { e.preventDefault(); setEditRoutine(routine) }}
               onTouchStart={() => routineLongPressTimer[1](setTimeout(() => setEditRoutine(routine), 600))}
               onTouchEnd={() => { clearTimeout(routineLongPressTimer[0]); routineLongPressTimer[1](null) }}
@@ -253,6 +258,7 @@ export default function App() {
                 return (
                   <div
                     key={type}
+                    className="slot"
                     onClick={() => !block && setShowSlotModal({ slot, type })}
                     onContextMenu={e => { e.preventDefault(); if (block) deleteTimeblock(block.id) }}
                     onTouchStart={() => { if (block) { longPressTimer[1](setTimeout(() => deleteTimeblock(block.id), 600)) } }}
@@ -275,8 +281,8 @@ export default function App() {
       {/* 바텀시트 - 태스크/루틴 추가 */}
       {showSheet && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
-          <div onClick={() => setShowSheet(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
+          <div className="sheet-backdrop" onClick={() => setShowSheet(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
             <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 20px' }} />
             <input
               autoFocus
@@ -304,15 +310,15 @@ export default function App() {
       {/* 슬롯 선택 모달 */}
       {showSlotModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
-          <div onClick={() => setShowSlotModal(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
+          <div className="sheet-backdrop" onClick={() => setShowSlotModal(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
             <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px' }} />
             <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>{showSlotModal.slot} · {showSlotModal.type === 'plan' ? 'PLAN' : 'DONE'}</div>
             {routines.length > 0 && (
               <>
                 <div style={{ fontSize: 11, color: '#aaa', marginBottom: 8 }}>루틴</div>
                 {routines.map(routine => (
-                  <div key={routine.id} onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, routine.id, true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                  <div key={routine.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, routine.id, true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
                     <span style={{ fontSize: 15 }}>{routine.title}</span>
                     <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[routine.area] || '#ddd', color: '#fff' }}>{routine.area}</span>
                   </div>
@@ -323,7 +329,7 @@ export default function App() {
               <>
                 <div style={{ fontSize: 11, color: '#aaa', margin: '12px 0 8px' }}>덤프</div>
                 {tasks.filter(t => !t.is_done).map(task => (
-                  <div key={task.id} onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, task.id, false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                  <div key={task.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, task.id, false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
                     <span style={{ fontSize: 15 }}>{task.title}</span>
                     <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[task.area] || '#ddd', color: '#fff' }}>{task.area}</span>
                   </div>
@@ -337,8 +343,8 @@ export default function App() {
       {/* 태스크 편집 모달 */}
       {editTask && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 20 }}>
-          <div onClick={() => setEditTask(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
+          <div className="sheet-backdrop" onClick={() => setEditTask(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
             <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px' }} />
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{editTask.title}</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>영역 변경 또는 삭제</div>
@@ -359,8 +365,8 @@ export default function App() {
       {/* 루틴 편집 모달 */}
       {editRoutine && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 20 }}>
-          <div onClick={() => setEditRoutine(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
+          <div className="sheet-backdrop" onClick={() => setEditRoutine(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
             <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px' }} />
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{editRoutine.title}</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>영역 변경 또는 삭제</div>
