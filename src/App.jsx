@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 
 const AREAS = ['매장일', '주식', '탐험', '일러스트', '탐구', '생활관리', '중국소싱']
@@ -36,9 +36,13 @@ export default function App() {
   const [dateOffset, setDateOffset] = useState(0)
   const [editTask, setEditTask] = useState(null)
   const [editRoutine, setEditRoutine] = useState(null)
+  const [collapsedAreas, setCollapsedAreas] = useState({})
+  const [dragOver, setDragOver] = useState(null)
   const longPressTimer = useState(null)
   const taskLongPressTimer = useState(null)
   const routineLongPressTimer = useState(null)
+  const dragItem = useRef(null)
+  const dragArea = useRef(null)
 
   const getDate = (offset) => {
     const d = new Date()
@@ -73,7 +77,7 @@ export default function App() {
   }
 
   async function fetchRoutines() {
-    const { data } = await supabase.from('routines').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
     if (data) setRoutines(data)
   }
 
@@ -85,7 +89,9 @@ export default function App() {
   async function addTask() {
     if (!newTitle.trim()) return
     if (tab === 'routine') {
-      await supabase.from('routines').insert({ title: newTitle, area: newArea })
+      const areaRoutines = routines.filter(r => r.area === newArea)
+      const maxOrder = areaRoutines.length > 0 ? Math.max(...areaRoutines.map(r => r.sort_order || 0)) : 0
+      await supabase.from('routines').insert({ title: newTitle, area: newArea, sort_order: maxOrder + 1 })
       fetchRoutines()
     } else {
       await supabase.from('tasks').insert({ title: newTitle, area: newArea, is_done: false })
@@ -149,7 +155,48 @@ export default function App() {
     return timeblocks.find(b => b.time_slot === slot && b.type === type)
   }
 
+  function toggleArea(area) {
+    setCollapsedAreas(prev => ({ ...prev, [area]: !prev[area] }))
+  }
+
+  // 드래그 핸들러
+  function handleDragStart(routine, area) {
+    dragItem.current = routine
+    dragArea.current = area
+  }
+
+  async function handleDrop(targetRoutine) {
+    if (!dragItem.current || dragItem.current.id === targetRoutine.id) return
+    if (dragArea.current !== targetRoutine.area) return
+
+    const area = dragArea.current
+    const areaRoutines = routines.filter(r => r.area === area)
+    const fromIdx = areaRoutines.findIndex(r => r.id === dragItem.current.id)
+    const toIdx = areaRoutines.findIndex(r => r.id === targetRoutine.id)
+
+    const reordered = [...areaRoutines]
+    reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, dragItem.current)
+
+    // DB 업데이트
+    await Promise.all(reordered.map((r, i) =>
+      supabase.from('routines').update({ sort_order: i }).eq('id', r.id)
+    ))
+
+    setDragOver(null)
+    dragItem.current = null
+    dragArea.current = null
+    fetchRoutines()
+  }
+
   const filteredTasks = tasks.filter(t => dumpTab === 'todo' ? !t.is_done : t.is_done)
+
+  // 영역별 그룹핑
+  const groupedRoutines = AREAS.reduce((acc, area) => {
+    const list = routines.filter(r => r.area === area)
+    if (list.length > 0) acc[area] = list
+    return acc
+  }, {})
 
   return (
     <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
@@ -213,26 +260,48 @@ export default function App() {
       {/* 루틴 탭 */}
       {tab === 'routine' && (
         <div style={{ padding: '16px' }}>
-          {routines.length === 0 && (
+          {Object.keys(groupedRoutines).length === 0 && (
             <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
               루틴이 없어요 — 추가해봐요!
             </div>
           )}
-          {routines.map(routine => (
-            <div
-              key={routine.id}
-              className="task-item"
-              onContextMenu={e => { e.preventDefault(); setEditRoutine(routine) }}
-              onTouchStart={() => routineLongPressTimer[1](setTimeout(() => setEditRoutine(routine), 600))}
-              onTouchEnd={() => { clearTimeout(routineLongPressTimer[0]); routineLongPressTimer[1](null) }}
-              style={{
+          {Object.entries(groupedRoutines).map(([area, list]) => (
+            <div key={area} style={{ marginBottom: 8 }}>
+              {/* 영역 헤더 */}
+              <div onClick={() => toggleArea(area)} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 4px', borderBottom: '1px solid #e8e3d8', cursor: 'pointer'
+                padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+                background: AREA_COLORS[area] || '#ddd', marginBottom: 2
               }}>
-              <span style={{ fontSize: 15, color: '#222' }}>{routine.title}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[routine.area] || '#ddd', color: '#fff' }}>
-                {routine.area}
-              </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{area}</span>
+                <span style={{ fontSize: 12, color: '#fff', transition: 'transform 0.2s', display: 'inline-block', transform: collapsedAreas[area] ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+              </div>
+
+              {/* 루틴 리스트 */}
+              {!collapsedAreas[area] && list.map(routine => (
+                <div
+                  key={routine.id}
+                  className="task-item"
+                  draggable
+                  onDragStart={() => handleDragStart(routine, area)}
+                  onDragOver={e => { e.preventDefault(); setDragOver(routine.id) }}
+                  onDrop={() => handleDrop(routine)}
+                  onDragEnd={() => { setDragOver(null); dragItem.current = null }}
+                  onContextMenu={e => { e.preventDefault(); setEditRoutine(routine) }}
+                  onTouchStart={() => routineLongPressTimer[1](setTimeout(() => setEditRoutine(routine), 600))}
+                  onTouchEnd={() => { clearTimeout(routineLongPressTimer[0]); routineLongPressTimer[1](null) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 8px', borderBottom: '1px solid #e8e3d8', cursor: 'grab',
+                    background: dragOver === routine.id ? '#e0dbd0' : 'transparent',
+                    transition: 'background 0.15s'
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#bbb', fontSize: 14 }}>⠿</span>
+                    <span style={{ fontSize: 15, color: '#222' }}>{routine.title}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
