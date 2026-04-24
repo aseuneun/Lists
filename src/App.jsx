@@ -291,7 +291,7 @@ export default function App() {
       {tab === 'routine' && (
         <div>
           {/* 루틴 서브탭 */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #eee', background: '#fff' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #eee', background: '#f5f0e8' }}>
             {['list', 'stats'].map(s => (
               <button key={s} onClick={() => setRoutineSubTab(s)} style={{
                 flex: 1, padding: '10px 0', border: 'none', background: 'none', cursor: 'pointer',
