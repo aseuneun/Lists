@@ -77,7 +77,7 @@ export default function App() {
   }
 
   async function fetchRoutines() {
-    const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
+    const { data } = await supabase.from('routines').select('*').eq('is_hidden', false).order('sort_order', { ascending: true })
     if (data) setRoutines(data)
   }
 
@@ -121,7 +121,7 @@ export default function App() {
   }
 
   async function deleteRoutine(id) {
-    await supabase.from('routines').delete().eq('id', id)
+    await supabase.from('routines').update({ is_hidden: true }).eq('id', id)
     setEditRoutine(null)
     fetchRoutines()
   }
