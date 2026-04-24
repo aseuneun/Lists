@@ -381,37 +381,39 @@ export default function App() {
 
       {/* 슬롯 선택 모달 */}
       {showSlotModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
-          <div className="sheet-backdrop" onClick={() => setShowSlotModal(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
-          <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 40px' }}>
-            <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px' }} />
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>{showSlotModal.slot} · {showSlotModal.type === 'plan' ? 'PLAN' : 'DONE'}</div>
-            {routines.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: '#aaa', marginBottom: 8 }}>루틴</div>
-                {routines.map(routine => (
-                  <div key={routine.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, routine.id, true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                    <span style={{ fontSize: 15 }}>{routine.title}</span>
-                    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[routine.area] || '#ddd', color: '#fff' }}>{routine.area}</span>
-                  </div>
-                ))}
-              </>
-            )}
-            {tasks.filter(t => !t.is_done).length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: '#aaa', margin: '12px 0 8px' }}>덤프</div>
-                {tasks.filter(t => !t.is_done).map(task => (
-                  <div key={task.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, task.id, false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                    <span style={{ fontSize: 15 }}>{task.title}</span>
-                    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[task.area] || '#ddd', color: '#fff' }}>{task.area}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
+  <div style={{ position: 'fixed', inset: 0, zIndex: 10 }}>
+    <div className="sheet-backdrop" onClick={() => setShowSlotModal(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+    <div className="sheet-content" style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 20px 0', maxHeight: '55vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px', flexShrink: 0 }} />
+      <div style={{ fontSize: 13, color: '#888', marginBottom: 12, paddingBottom: 4, flexShrink: 0, paddingLeft: 4 }}>{showSlotModal.slot} · {showSlotModal.type === 'plan' ? 'PLAN' : 'DONE'}</div>
+      <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
+        {routines.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 8, paddingLeft: 4 }}>루틴</div>
+            {routines.map(routine => (
+              <div key={routine.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, routine.id, true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                <span style={{ fontSize: 15 }}>{routine.title}</span>
+                <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[routine.area] || '#ddd', color: '#fff' }}>{routine.area}</span>
+              </div>
+            ))}
+          </>
+        )}
+        {tasks.filter(t => !t.is_done).length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: '#aaa', margin: '12px 0 8px', paddingLeft: 4 }}>덤프</div>
+            {tasks.filter(t => !t.is_done).map(task => (
+              <div key={task.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, task.id, false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                <span style={{ fontSize: 15 }}>{task.title}</span>
+                <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 10, background: AREA_COLORS[task.area] || '#ddd', color: '#fff' }}>{task.area}</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+           
       {/* 태스크 편집 모달 */}
       {editTask && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 20 }}>
