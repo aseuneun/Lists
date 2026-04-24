@@ -37,6 +37,7 @@ export default function App() {
   const [editTask, setEditTask] = useState(null)
   const [editRoutine, setEditRoutine] = useState(null)
   const [collapsedAreas, setCollapsedAreas] = useState({})
+  const [showHidden, setShowHidden] = useState(false)
   const [dragOver, setDragOver] = useState(null)
   const longPressTimer = useState(null)
   const taskLongPressTimer = useState(null)
@@ -77,7 +78,7 @@ export default function App() {
   }
 
   async function fetchRoutines() {
-    const { data } = await supabase.from('routines').select('*').eq('is_hidden', false).order('sort_order', { ascending: true })
+    const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
     if (data) setRoutines(data)
   }
 
@@ -193,7 +194,7 @@ export default function App() {
 
   // 영역별 그룹핑
   const groupedRoutines = AREAS.reduce((acc, area) => {
-    const list = routines.filter(r => r.area === area)
+    const list = routines.filter(r => r.area === area && !r.is_hidden)
     if (list.length > 0) acc[area] = list
     return acc
   }, {})
@@ -260,52 +261,72 @@ export default function App() {
       {/* 루틴 탭 */}
       {tab === 'routine' && (
         <div style={{ padding: '16px' }}>
-          {Object.keys(groupedRoutines).length === 0 && (
-            <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
-              루틴이 없어요 — 추가해봐요!
-            </div>
-          )}
-          {Object.entries(groupedRoutines).map(([area, list]) => (
-            <div key={area} style={{ marginBottom: 8 }}>
-              {/* 영역 헤더 */}
-              <div onClick={() => toggleArea(area)} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
-                background: AREA_COLORS[area] || '#ddd', marginBottom: 2
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{area}</span>
-                <span style={{ fontSize: 12, color: '#fff', transition: 'transform 0.2s', display: 'inline-block', transform: collapsedAreas[area] ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
-              </div>
-
-              {/* 루틴 리스트 */}
-              {!collapsedAreas[area] && list.map(routine => (
-                <div
-                  key={routine.id}
-                  className="task-item"
-                  draggable
-                  onDragStart={() => handleDragStart(routine, area)}
-                  onDragOver={e => { e.preventDefault(); setDragOver(routine.id) }}
-                  onDrop={() => handleDrop(routine)}
-                  onDragEnd={() => { setDragOver(null); dragItem.current = null }}
-                  onContextMenu={e => { e.preventDefault(); setEditRoutine(routine) }}
-                  onTouchStart={() => routineLongPressTimer[1](setTimeout(() => setEditRoutine(routine), 600))}
-                  onTouchEnd={() => { clearTimeout(routineLongPressTimer[0]); routineLongPressTimer[1](null) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 8px', borderBottom: '1px solid #e8e3d8', cursor: 'grab',
-                    background: dragOver === routine.id ? '#e0dbd0' : 'transparent',
-                    transition: 'background 0.15s'
-                  }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#bbb', fontSize: 14 }}>⠿</span>
-                    <span style={{ fontSize: 15, color: '#222' }}>{routine.title}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
+    {Object.keys(groupedRoutines).length === 0 && !showHidden && (
+      <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
+        루틴이 없어요 — 추가해봐요!
+      </div>
+    )}
+    {Object.entries(groupedRoutines).map(([area, list]) => (
+      <div key={area} style={{ marginBottom: 8 }}>
+        <div onClick={() => toggleArea(area)} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+          background: AREA_COLORS[area] || '#ddd', marginBottom: 2
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{area}</span>
+          <span style={{ fontSize: 12, color: '#fff', transition: 'transform 0.2s', display: 'inline-block', transform: collapsedAreas[area] ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
         </div>
-      )}
+        {!collapsedAreas[area] && list.map(routine => (
+          <div
+            key={routine.id}
+            className="task-item"
+            draggable
+            onDragStart={() => handleDragStart(routine, area)}
+            onDragOver={e => { e.preventDefault(); setDragOver(routine.id) }}
+            onDrop={() => handleDrop(routine)}
+            onDragEnd={() => { setDragOver(null); dragItem.current = null }}
+            onContextMenu={e => { e.preventDefault(); setEditRoutine(routine) }}
+            onTouchStart={() => routineLongPressTimer[1](setTimeout(() => setEditRoutine(routine), 600))}
+            onTouchEnd={() => { clearTimeout(routineLongPressTimer[0]); routineLongPressTimer[1](null) }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 8px', borderBottom: '1px solid #e8e3d8', cursor: 'grab',
+              background: dragOver === routine.id ? '#e0dbd0' : 'transparent',
+              transition: 'background 0.15s'
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: '#bbb', fontSize: 14 }}>⠿</span>
+              <span style={{ fontSize: 15, color: '#222' }}>{routine.title}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    ))}
+
+    {/* 숨긴 항목 토글 */}
+    <div onClick={() => setShowHidden(h => !h)} style={{
+      marginTop: 16, padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+      background: '#e0dbd0', textAlign: 'center', fontSize: 13, color: '#666'
+    }}>
+      {showHidden ? '숨긴 항목 닫기 ▴' : '숨긴 항목 보기 ▾'}
+    </div>
+
+    {showHidden && routines.filter(r => r.is_hidden).map(routine => (
+      <div key={routine.id} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 8px', borderBottom: '1px solid #e8e3d8'
+      }}>
+        <span style={{ fontSize: 15, color: '#aaa' }}>{routine.title}</span>
+        <button onClick={() => {
+          supabase.from('routines').update({ is_hidden: false }).eq('id', routine.id).then(fetchRoutines)
+        }} style={{
+          padding: '4px 12px', borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: '#222', color: '#fff', fontSize: 12
+        }}>복구</button>
+      </div>
+    ))}
+  </div>
+)}
 
       {/* 타임블록 탭 */}
       {tab === 'timeblock' && (
