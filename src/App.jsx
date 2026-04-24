@@ -103,7 +103,7 @@ export default function App() {
   }
 
   async function fetchRoutines() {
-    const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
+     const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
     if (data) setRoutines(data)
   }
 
