@@ -36,7 +36,9 @@ export default function App() {
   const [dateOffset, setDateOffset] = useState(0)
   const [editTask, setEditTask] = useState(null)
   const [editRoutine, setEditRoutine] = useState(null)
-  const [collapsedAreas, setCollapsedAreas] = useState({})
+  const [collapsedAreas, setCollapsedAreas] = useState(
+    AREAS.reduce((acc, area) => ({ ...acc, [area]: true }), {})
+  )
   const [showHidden, setShowHidden] = useState(false)
   const [dragOver, setDragOver] = useState(null)
   const longPressTimer = useState(null)
@@ -270,12 +272,11 @@ export default function App() {
       <div key={area} style={{ marginBottom: 8 }}>
         <div onClick={() => toggleArea(area)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
-          background: AREA_COLORS[area] || '#ddd', marginBottom: 2
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{area}</span>
-          <span style={{ fontSize: 12, color: '#fff', transition: 'transform 0.2s', display: 'inline-block', transform: collapsedAreas[area] ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
-        </div>
+  padding: '12px 4px', borderBottom: '1px solid #e8e3d8', cursor: 'pointer'
+}}>
+  <span style={{ fontSize: 13, fontWeight: 700, color: '#444' }}>{area}</span>
+  <span style={{ fontSize: 11, color: '#aaa', transition: 'transform 0.2s', display: 'inline-block', transform: collapsedAreas[area] ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+</div>
         {!collapsedAreas[area] && list.map(routine => (
           <div
             key={routine.id}
