@@ -241,7 +241,7 @@ export default function App() {
     <div style={{ fontFamily: 'Noto Sans KR, sans-serif', background: '#f5f0e8', minHeight: '100vh', width: '100%', position: 'relative' }}>
 
       {/* 메인 탭 헤더 */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#fff', position: 'relative' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: '#f5f0e8', position: 'relative' }}>
         {TABS.map(t => (
           <button key={t} className="tab-button" onClick={() => setTab(t)} style={{
             flex: 1, padding: '14px 0', border: 'none', background: 'none',
