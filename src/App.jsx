@@ -488,10 +488,10 @@ export default function App() {
             <div style={{ width: 40, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 16px', flexShrink: 0 }} />
             <div style={{ fontSize: 13, color: '#888', marginBottom: 12, paddingLeft: 4, flexShrink: 0 }}>{showSlotModal.slot} · {showSlotModal.type === 'plan' ? 'PLAN' : 'DONE'}</div>
             <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
-              {routines.filter(r => !r.is_hidden).length > 0 && (
+              {routines.filter(r => r.is_hidden !== true).length > 0 && (
                 <>
                   <div style={{ fontSize: 11, color: '#aaa', marginBottom: 8, paddingLeft: 4 }}>루틴</div>
-                  {routines.filter(r => !r.is_hidden).map(routine => (
+                  {routines.filter(r => r.is_hidden !== true).map(routine => (
                     <div key={routine.id} className="task-item" onClick={() => assignTimeblock(showSlotModal.slot, showSlotModal.type, routine.id, true)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
                       <span style={{ fontSize: 15 }}>{routine.title}</span>
