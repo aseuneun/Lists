@@ -33,7 +33,7 @@ function getLocalDate(d) {
 function getDateRange(period) {
   const today = new Date()
   const dates = []
-  let days = period === 'week' ? 7 : period === 'month' ? 30 : 90
+  let days = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 90
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(today.getDate() - i)
@@ -42,15 +42,94 @@ function getDateRange(period) {
   return dates
 }
 
+// 원호 SVG 경로 계산
+function describeArc(cx, cy, r, startAngle, endAngle) {
+  const toRad = (deg) => (deg * Math.PI) / 180
+  const x1 = cx + r * Math.cos(toRad(startAngle))
+  const y1 = cy + r * Math.sin(toRad(startAngle))
+  const x2 = cx + r * Math.cos(toRad(endAngle))
+  const y2 = cy + r * Math.sin(toRad(endAngle))
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`
+}
+
+// 호 중간 지점 좌표
+function midAngle(start, end) {
+  return (start + end) / 2
+}
+
+function ArcChart({ data, totalHours }) {
+  const cx = 150, cy = 150, r = 100
+  const gap = 4
+  const total = data.reduce((s, d) => s + d.hours, 0)
+  if (total === 0) return (
+    <div style={{ textAlign: 'center', color: '#aaa', fontSize: 14, padding: 40 }}>
+      아직 데이터가 없어요
+    </div>
+  )
+
+  let currentAngle = -90
+  const arcs = data.filter(d => d.hours > 0).map(d => {
+    const sweep = (d.hours / total) * (360 - gap * data.filter(x => x.hours > 0).length)
+    const start = currentAngle
+    const end = currentAngle + sweep
+    currentAngle = end + gap
+    return { ...d, start, end }
+  })
+
+  return (
+    <svg width="300" height="300" viewBox="0 0 300 300" style={{ display: 'block', margin: '0 auto' }}>
+      {arcs.map(arc => {
+        const mid = midAngle(arc.start, arc.end)
+        const toRad = (deg) => (deg * Math.PI) / 180
+        const tx = cx + (r) * Math.cos(toRad(mid))
+        const ty = cy + (r) * Math.sin(toRad(mid))
+        return (
+          <g key={arc.area}>
+            <path
+              d={describeArc(cx, cy, r, arc.start, arc.end)}
+              fill="none"
+              stroke={arc.color}
+              strokeWidth="28"
+              strokeLinecap="round"
+            />
+            <text
+              x={tx} y={ty}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="11"
+              fontWeight="700"
+              fill="#fff"
+              fontFamily="Noto Sans KR, sans-serif"
+            >
+              {arc.area[0]}
+            </text>
+          </g>
+        )
+      })}
+      {/* 가운데 총 시간 */}
+      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="32" fontWeight="700" fill="#222" fontFamily="Noto Sans KR, sans-serif">
+        {totalHours}
+      </text>
+      <text x={cx} y={cy + 20} textAnchor="middle" fontSize="12" fill="#aaa" fontFamily="Noto Sans KR, sans-serif">
+        시간
+      </text>
+    </svg>
+  )
+}
+
 export default function App() {
   const [tab, setTab] = useState('dump')
-  const [routineSubTab, setRoutineSubTab] = useState('list') // list | stats
+  const [routineSubTab, setRoutineSubTab] = useState('list')
+  const [timeblockSubTab, setTimeblockSubTab] = useState('block') // block | stats
   const [statsPeriod, setStatsPeriod] = useState('week')
+  const [tbStatsPeriod, setTbStatsPeriod] = useState('day')
   const [dumpTab, setDumpTab] = useState('todo')
   const [tasks, setTasks] = useState([])
   const [routines, setRoutines] = useState([])
   const [timeblocks, setTimeblocks] = useState([])
   const [allTimeblocks, setAllTimeblocks] = useState([])
+  const [tbStatsBlocks, setTbStatsBlocks] = useState([])
   const [showSheet, setShowSheet] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newArea, setNewArea] = useState(AREAS[0])
@@ -97,13 +176,17 @@ export default function App() {
     if (routineSubTab === 'stats') fetchAllTimeblocks()
   }, [routineSubTab, statsPeriod])
 
+  useEffect(() => {
+    if (timeblockSubTab === 'stats') fetchTbStats()
+  }, [timeblockSubTab, tbStatsPeriod])
+
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
     if (data) setTasks(data)
   }
 
   async function fetchRoutines() {
-     const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
+    const { data } = await supabase.from('routines').select('*').order('sort_order', { ascending: true })
     if (data) setRoutines(data)
   }
 
@@ -114,10 +197,14 @@ export default function App() {
 
   async function fetchAllTimeblocks() {
     const dates = getDateRange(statsPeriod)
-    const from = dates[0]
-    const to = dates[dates.length - 1]
-    const { data } = await supabase.from('timeblocks').select('*').gte('date', from).lte('date', to)
+    const { data } = await supabase.from('timeblocks').select('*').gte('date', dates[0]).lte('date', dates[dates.length - 1])
     if (data) setAllTimeblocks(data)
+  }
+
+  async function fetchTbStats() {
+    const dates = getDateRange(tbStatsPeriod)
+    const { data } = await supabase.from('timeblocks').select('*, tasks(area), routines:routine_id(area)').gte('date', dates[0]).lte('date', dates[dates.length - 1]).eq('type', 'done')
+    if (data) setTbStatsBlocks(data)
   }
 
   async function addTask() {
@@ -217,17 +304,33 @@ export default function App() {
     fetchRoutines()
   }
 
-  // 통계 계산
-  function getStats() {
+  function getRoutineStats() {
     const dates = getDateRange(statsPeriod)
     const visibleRoutines = routines.filter(r => !r.is_hidden)
-
     return visibleRoutines.map(routine => {
       const blocks = allTimeblocks.filter(b => b.routine_id === routine.id && b.type === 'done')
       const dateSet = new Set(blocks.map(b => b.date))
       const totalHours = (blocks.length * 0.5).toFixed(1)
       return { routine, dates, dateSet, totalHours }
     }).filter(s => s.dateSet.size > 0)
+  }
+
+  function getTbStats() {
+    const areaMap = {}
+    tbStatsBlocks.forEach(b => {
+      const area = b.tasks?.area || b.routines?.area
+      if (!area) return
+      areaMap[area] = (areaMap[area] || 0) + 0.5
+    })
+    const total = Object.values(areaMap).reduce((s, v) => s + v, 0)
+    return {
+      data: AREAS.filter(a => areaMap[a]).map(a => ({
+        area: a,
+        hours: areaMap[a],
+        color: AREA_COLORS[a]
+      })),
+      totalHours: total.toFixed(1)
+    }
   }
 
   const filteredTasks = tasks.filter(t => dumpTab === 'todo' ? !t.is_done : t.is_done)
@@ -290,7 +393,6 @@ export default function App() {
       {/* 루틴 탭 */}
       {tab === 'routine' && (
         <div>
-          {/* 루틴 서브탭 */}
           <div style={{ display: 'flex', borderBottom: '1px solid #eee', background: '#f5f0e8' }}>
             {['list', 'stats'].map(s => (
               <button key={s} onClick={() => setRoutineSubTab(s)} style={{
@@ -304,7 +406,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* 루틴 목록 */}
           {routineSubTab === 'list' && (
             <div style={{ padding: '16px' }}>
               {Object.keys(groupedRoutines).length === 0 && (
@@ -343,15 +444,13 @@ export default function App() {
                   ))}
                 </div>
               ))}
-
-              {/* 숨긴 항목 */}
               <div onClick={() => setShowHidden(h => !h)} style={{
                 marginTop: 16, padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
                 background: '#e0dbd0', textAlign: 'center', fontSize: 13, color: '#666'
               }}>
                 {showHidden ? '숨긴 항목 닫기 ▴' : '숨긴 항목 보기 ▾'}
               </div>
-              {showHidden && routines.filter(r => r.is_hidden).map(routine => (
+              {showHidden && routines.filter(r => r.is_hidden === true).map(routine => (
                 <div key={routine.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 8px', borderBottom: '1px solid #e8e3d8' }}>
                   <span style={{ fontSize: 15, color: '#aaa' }}>{routine.title}</span>
                   <button onClick={() => supabase.from('routines').update({ is_hidden: false }).eq('id', routine.id).then(fetchRoutines)} style={{
@@ -363,10 +462,8 @@ export default function App() {
             </div>
           )}
 
-          {/* 통계 */}
           {routineSubTab === 'stats' && (
             <div style={{ padding: '16px' }}>
-              {/* 기간 선택 */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                 {[['week', '주'], ['month', '월'], ['quarter', '분기']].map(([key, label]) => (
                   <button key={key} onClick={() => setStatsPeriod(key)} style={{
@@ -376,14 +473,10 @@ export default function App() {
                   }}>{label}</button>
                 ))}
               </div>
-
-              {getStats().length === 0 && (
-                <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
-                  아직 완료한 루틴이 없어요
-                </div>
+              {getRoutineStats().length === 0 && (
+                <div style={{ color: '#aaa', fontSize: 14, textAlign: 'center', marginTop: 40 }}>아직 완료한 루틴이 없어요</div>
               )}
-
-              {getStats().map(({ routine, dates, dateSet, totalHours }) => (
+              {getRoutineStats().map(({ routine, dates, dateSet, totalHours }) => (
                 <div key={routine.id} style={{ marginBottom: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -392,7 +485,6 @@ export default function App() {
                     </div>
                     <span style={{ fontSize: 12, color: '#888' }}>{totalHours}h</span>
                   </div>
-                  {/* 날짜 박스 그리드 */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                     {dates.map(date => (
                       <div key={date} title={date} style={{
@@ -403,9 +495,7 @@ export default function App() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
                         {statsPeriod === 'week' && (
-                          <span style={{ fontSize: 9, color: dateSet.has(date) ? '#fff' : '#bbb' }}>
-                            {date.slice(8)}
-                          </span>
+                          <span style={{ fontSize: 9, color: dateSet.has(date) ? '#fff' : '#bbb' }}>{date.slice(8)}</span>
                         )}
                       </div>
                     ))}
@@ -419,41 +509,86 @@ export default function App() {
 
       {/* 타임블록 탭 */}
       {tab === 'timeblock' && (
-        <div style={{ padding: '16px 8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 12 }}>
-            <button onClick={() => setDateOffset(d => d - 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>‹</button>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>{getDateLabel(dateOffset)} · {today}</span>
-            <button onClick={() => setDateOffset(d => d + 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>›</button>
+        <div>
+          {/* 타임블록 서브탭 */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #eee', background: '#f5f0e8' }}>
+            {['block', 'stats'].map(s => (
+              <button key={s} onClick={() => setTimeblockSubTab(s)} style={{
+                flex: 1, padding: '10px 0', border: 'none', background: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: timeblockSubTab === s ? 700 : 400,
+                color: timeblockSubTab === s ? '#222' : '#aaa',
+                borderBottom: timeblockSubTab === s ? '2px solid #222' : '2px solid transparent'
+              }}>
+                {s === 'block' ? '블록' : '통계'}
+              </button>
+            ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 4 }}>
-            <div />
-            <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>PLAN</div>
-            <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>DONE</div>
-          </div>
-          {TIME_SLOTS.map(slot => (
-            <div key={slot} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 2 }}>
-              <div style={{ fontSize: 11, color: '#888', paddingTop: 6, textAlign: 'right', paddingRight: 8 }}>{slot}</div>
-              {['plan', 'done'].map(type => {
-                const block = getBlock(slot, type)
-                const label = block?.tasks?.title || (block?.routine_id ? routines.find(r => r.id === block.routine_id)?.title : null)
-                const area = block?.tasks?.area || (block?.routine_id ? routines.find(r => r.id === block.routine_id)?.area : null)
-                return (
-                  <div key={type} className="slot"
-                    onClick={() => !block && setShowSlotModal({ slot, type })}
-                    onContextMenu={e => { e.preventDefault(); if (block) deleteTimeblock(block.id) }}
-                    onTouchStart={() => { if (block) { longPressTimer[1](setTimeout(() => deleteTimeblock(block.id), 600)) } }}
-                    onTouchEnd={() => { clearTimeout(longPressTimer[0]); longPressTimer[1](null) }}
-                    style={{
-                      minHeight: 32, margin: '0 2px', borderRadius: 4, cursor: 'pointer',
-                      background: block ? (AREA_COLORS[area] || '#ccc') : '#e8e3d8',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 6px'
-                    }}>
-                    {label && <span style={{ fontSize: 11, color: '#fff', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>}
-                  </div>
-                )
-              })}
+
+          {/* 블록 뷰 */}
+          {timeblockSubTab === 'block' && (
+            <div style={{ padding: '16px 8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 12 }}>
+                <button onClick={() => setDateOffset(d => d - 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>‹</button>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{getDateLabel(dateOffset)} · {today}</span>
+                <button onClick={() => setDateOffset(d => d + 1)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#666' }}>›</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 4 }}>
+                <div />
+                <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>PLAN</div>
+                <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#444' }}>DONE</div>
+              </div>
+              {TIME_SLOTS.map(slot => (
+                <div key={slot} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, color: '#888', paddingTop: 6, textAlign: 'right', paddingRight: 8 }}>{slot}</div>
+                  {['plan', 'done'].map(type => {
+                    const block = getBlock(slot, type)
+                    const label = block?.tasks?.title || (block?.routine_id ? routines.find(r => r.id === block.routine_id)?.title : null)
+                    const area = block?.tasks?.area || (block?.routine_id ? routines.find(r => r.id === block.routine_id)?.area : null)
+                    return (
+                      <div key={type} className="slot"
+                        onClick={() => !block && setShowSlotModal({ slot, type })}
+                        onContextMenu={e => { e.preventDefault(); if (block) deleteTimeblock(block.id) }}
+                        onTouchStart={() => { if (block) { longPressTimer[1](setTimeout(() => deleteTimeblock(block.id), 600)) } }}
+                        onTouchEnd={() => { clearTimeout(longPressTimer[0]); longPressTimer[1](null) }}
+                        style={{
+                          minHeight: 32, margin: '0 2px', borderRadius: 4, cursor: 'pointer',
+                          background: block ? (AREA_COLORS[area] || '#ccc') : '#e8e3d8',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 6px'
+                        }}>
+                        {label && <span style={{ fontSize: 11, color: '#fff', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {/* 통계 뷰 */}
+          {timeblockSubTab === 'stats' && (
+            <div style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+                {[['day', '오늘'], ['week', '주'], ['month', '월'], ['quarter', '분기']].map(([key, label]) => (
+                  <button key={key} onClick={() => setTbStatsPeriod(key)} style={{
+                    padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13,
+                    background: tbStatsPeriod === key ? '#222' : '#e0dbd0',
+                    color: tbStatsPeriod === key ? '#fff' : '#666'
+                  }}>{label}</button>
+                ))}
+              </div>
+              <ArcChart {...getTbStats()} />
+
+              {/* 범례 */}
+              <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+                {getTbStats().data.map(d => (
+                  <div key={d.area} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} />
+                    <span style={{ fontSize: 12, color: '#555' }}>{d.area} {d.hours}h</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
